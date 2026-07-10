@@ -301,6 +301,30 @@ sub resolve_libname {
 	return $targets[0]->{name};
 }
 
+# Declares the app's languages to Android (13+): the manifest's
+# android:localeConfig points at this resource, which makes the app appear
+# in the system per-app language picker. The user's choice flows back to
+# gettext through LocaleEnvProvider. English is always listed as gettext's
+# source language; the rest come from the bundled .mo catalogs.
+sub write_locales_config {
+	my ($res_dir, @langs) = @_;
+	my %seen = ("en" => 1);
+	for my $lang (@langs) {
+		$lang =~ s/[.@].*$//;   # strip codeset/modifier
+		$lang =~ tr/_/-/;       # POSIX-ish -> BCP-47ish
+		$seen{$lang} = 1 if length $lang;
+	}
+	my $xmldir = catfile($res_dir, "xml");
+	make_path $xmldir;
+	my $path = catfile($xmldir, "locales_config.xml");
+	open my $fh, '>', $path or die "Unable to write $path: $!";
+	print $fh "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+	print $fh "<locale-config xmlns:android=\"http://schemas.android.com/apk/res/android\">\n";
+	print $fh "\t<locale android:name=\"$_\"/>\n" for sort keys %seen;
+	print $fh "</locale-config>\n";
+	close $fh;
+}
+
 my %actions = (
 	"prepare" => sub {
 		my $meson = "meson";
@@ -729,6 +753,9 @@ my %actions = (
 		copy("$asset_dir/generate/LocaleEnvProvider.java", catfile($bridge_dir, "LocaleEnvProvider.java"))
 			or die "Failed to copy LocaleEnvProvider.java: $!";
 
+		# Placeholder so the manifest's android:localeConfig reference always
+		# resolves; the build step rewrites it from the staged .mo catalogs.
+		write_locales_config(catfile($output_dir, "app/src/main/res"));
 
 		force_symlink("../../../../root/lib", catfile($output_dir, "app/src/main/jniLibs")) or die "Failed to symlink libraries: $!";
 	},
@@ -812,6 +839,23 @@ my %actions = (
 					   $root_schemas);
 				run \@cmd or die("Failed to compile schemas");
 			}
+		};
+
+		do {
+			# The languages the app itself was built with (its own gettext
+			# domain, not the dependencies'), for the Android 13+ per-app
+			# language picker (see write_locales_config).
+			my @langs;
+			my $localedir = catfile $root, "share/locale";
+			if (opendir(my $dh, $localedir)) {
+				for my $lang (readdir $dh) {
+					next if $lang =~ /^\./;
+					push @langs, $lang
+						if -f catfile($localedir, $lang, "LC_MESSAGES", "$libname.mo");
+				}
+				closedir $dh;
+			}
+			write_locales_config(catfile($pixiewood_dirname, "android", "app/src/main/res"), @langs);
 		};
 
 		do {

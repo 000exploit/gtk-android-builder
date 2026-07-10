@@ -23,6 +23,7 @@
 				android:roundIcon="@mipmap/ic_launcher_round"
 				android:supportsRtl="true"
 				android:theme="@style/Theme.Gtk"
+				android:localeConfig="@xml/locales_config"
 				android-tools:targetApi="36"
 			>
 				<meta-data android:name="gtk.android.lib_name" android:value="{$libname}" />
