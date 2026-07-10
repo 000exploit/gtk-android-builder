@@ -26,8 +26,16 @@
 				android-tools:targetApi="36"
 			>
 				<meta-data android:name="gtk.android.lib_name" android:value="{$libname}" />
+				<!-- Exports the device/per-app language into the gettext environment
+				     (LANGUAGE/LANG) before any native code runs; see
+				     generate/LocaleEnvProvider.java. -->
+				<provider
+					android:name="arpa.sp1rit.pixiewood.LocaleEnvProvider"
+					android:authorities="{$id}.pixiewood.localeenv"
+					android:exported="false"
+				/>
 				<activity android:name="org.gtk.android.ToplevelActivity"
-					android:configChanges="density|orientation|screenLayout|screenSize|touchscreen|uiMode"
+					android:configChanges="density|orientation|screenLayout|screenSize|touchscreen|uiMode|locale|layoutDirection"
 					android:windowSoftInputMode="adjustResize"
 					android:launchMode="standard"
 					android:enableOnBackInvokedCallback="true"

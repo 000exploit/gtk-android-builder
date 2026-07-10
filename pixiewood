@@ -23,7 +23,7 @@ use Cwd qw(abs_path);
 use File::Basename qw(fileparse);
 use File::Copy qw(copy);
 use File::Find qw(find);
-use File::Path qw(make_path);
+use File::Path qw(make_path remove_tree);
 use File::Spec::Functions qw(catfile rel2abs abs2rel);
 use Getopt::Long qw(GetOptions);
 use Glib;
@@ -276,6 +276,31 @@ sub get_target_arches {
 	}
 }
 
+# The (single) application target, as introspected by meson. Also serves as
+# the app's gettext domain: meson projects conventionally pass their project
+# name — which names the executable target here — to i18n.gettext().
+sub resolve_libname {
+	my ($appx, $arches) = @_;
+	my @targets = do {
+		my $arch = $arches->each;
+		$arches->size; # reset the iterator
+
+		my $file = "$pixiewood_dirname/bin-$arch/meson-info/intro-targets.json";
+		open(my $fh, "<", $file) or die("Failed to open target introspection $file: $!");
+		local $/;
+		my $json = decode_json <$fh>;
+		close $fh;
+		# TODO: filter out anything that wasn't produced by gnome.executable (not possible yet)
+		@$json;
+	};
+	my $target = $appx->findvalue('//pw:app/pw:build/@target');
+	@targets = grep { $_->{name} eq $target } @targets if $target;
+	# TODO: heuristic (case insensitive .name contains $name)
+	die "Unable to find target, have you set android_usecase?" if scalar @targets == 0;
+	die "Found more than one target, please set /pw:app/pw:build/\@target" if scalar @targets > 1;
+	return $targets[0]->{name};
+}
+
 my %actions = (
 	"prepare" => sub {
 		my $meson = "meson";
@@ -424,24 +449,7 @@ my %actions = (
 		my $package = lc(join('/', @id_parts));
 		my $class = $id_parts[-1] . "App";
 
-		my @targets = do {
-			my $arch = $arches->each;
-			$arches->size; # reset the iterator
-
-			my $file = "$pixiewood_dirname/bin-$arch/meson-info/intro-targets.json";
-			open(my $fh, "<", $file) or die("Failed to open target introspection $file: $!");
-			local $/;
-			my $json = decode_json <$fh>;
-			close $fh;
-			# TODO: filter out anything that wasn't produced by gnome.executable (not possible yet)
-			@$json;
-		};
-		my $target = $appx->findvalue('//pw:app/pw:build/@target');
-		@targets = grep { $_->{name} eq $target } @targets if $target;
-		# TODO: heuristic (case insensitive .name contains $name)
-		die "Unable to find target, have you set android_usecase?" if scalar @targets == 0;
-		die "Found more than one target, please set /pw:app/pw:build/\@target" if scalar @targets > 1;
-		my $libname = $targets[0]->{name};
+		my $libname = resolve_libname($appx, $arches);
 
 		our $output_dir = catfile($pixiewood_dirname, "android");
 
@@ -714,6 +722,14 @@ my %actions = (
 		$java_sources = "subprojects/gtk/gdk/android/glue/java/" unless $java_sources;
 		force_symlink(rel2abs(catfile($java_sources, "org/gtk/android")), catfile($output_dir, "app/src/main/java/org/gtk/android")) or die "Failed to symlink java sources: $!";
 
+		# The locale bridge: exports the device language as gettext env vars
+		# before native code runs (declared as a <provider> by manifest.xsl).
+		my $bridge_dir = catfile($output_dir, "app/src/main/java/arpa/sp1rit/pixiewood");
+		make_path($bridge_dir);
+		copy("$asset_dir/generate/LocaleEnvProvider.java", catfile($bridge_dir, "LocaleEnvProvider.java"))
+			or die "Failed to copy LocaleEnvProvider.java: $!";
+
+
 		force_symlink("../../../../root/lib", catfile($output_dir, "app/src/main/jniLibs")) or die "Failed to symlink libraries: $!";
 	},
 	"build" => sub {
@@ -742,10 +758,13 @@ my %actions = (
 
 		# Lets not run the install in parallel
 		while (defined(my $arch = $arches->each)) {
+			# i18n is included because Meson's i18n module hardcodes that tag
+			# on gettext .mo catalogs — with runtime alone they'd silently be
+			# dropped from the APK, shipping untranslated apps.
 			my @cmd = ($cfg->{'meson'}, "install",
 			           "-C", "$pixiewood_dirname/bin-$arch",
 			           "--destdir", rel2abs("$pixiewood_dirname/root"),
-			           "--tags", "runtime");
+			           "--tags", "runtime,i18n");
 			run \@cmd or die('Failed to install files');
 		}
 
@@ -753,7 +772,21 @@ my %actions = (
 
 		our $root = "$pixiewood_dirname/root";
 		our $filtered = Set::Scalar->new("bin", "lib", "share/glib-2.0/schemas");
+		our $libname = resolve_libname($appx, $arches);
+
+		# The copy below never deletes, so a language pruned from this build
+		# would otherwise linger in the assets from an earlier one.
+		remove_tree(catfile($asset_install_dir, "share/locale"));
+
 		sub pre_asset_copy {
+			# Under share/locale, keep only the languages the application
+			# itself is translated to: the dependencies' catalogs span >100
+			# languages (>20 MB) and, unlike the app's, are never found at
+			# runtime anyway — their compiled-in locale paths don't exist on
+			# device.
+			if (abs2rel($File::Find::dir, $root) eq catfile("share", "locale")) {
+				return grep { -f catfile($File::Find::dir, $_, "LC_MESSAGES", "$libname.mo") } @_;
+			}
 			grep { not $filtered->contains(abs2rel(catfile($File::Find::dir, $_), $root)) } @_
 		}
 		sub do_asset_copy {
