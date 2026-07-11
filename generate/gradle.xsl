@@ -52,7 +52,15 @@ android {
             abiFilters <xsl:value-of select="$abis" />
         }
     }
-
+<xsl:if test="pw:build/@extra-res">
+    sourceSets {
+        main {
+            // App-provided Android resources (see build/@extra-res); the
+            // generate step links them to src/main/extra-res.
+            res.srcDirs += ['src/main/extra-res']
+        }
+    }
+</xsl:if>
     buildTypes {
         debug {
             minifyEnabled false
@@ -84,6 +92,7 @@ android {
 
 dependencies {
     implementation libs.androidx.annotation
-}
+<xsl:for-each select="pw:build/pw:gradle-dependencies/pw:dependency">    implementation "<xsl:value-of select="normalize-space(.)"/>"
+</xsl:for-each>}
        </xsl:template>
 </xsl:stylesheet>

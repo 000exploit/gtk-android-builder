@@ -123,6 +123,47 @@
 									</xs:attribute>
 								</xs:complexType>
 							</xs:element>
+							<xs:element name="gradle-dependencies" minOccurs="0">
+								<xs:complexType>
+									<xs:annotation>
+										<xs:documentation>
+											Additional gradle dependency coordinates ("group:name:version") added to the
+											generated app module, e.g. for libraries used by extra-java sources.
+										</xs:documentation>
+									</xs:annotation>
+									<xs:sequence>
+										<xs:element name="dependency" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="uses-permissions" minOccurs="0">
+								<xs:complexType>
+									<xs:annotation>
+										<xs:documentation>
+											Additional Android permissions (fully qualified, e.g.
+											android.permission.POST_NOTIFICATIONS) declared in the generated manifest.
+										</xs:documentation>
+									</xs:annotation>
+									<xs:sequence>
+										<xs:element name="permission" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="manifest-extras" minOccurs="0">
+								<xs:complexType>
+									<xs:annotation>
+										<xs:documentation>
+											Extra AndroidManifest components (provider, service, receiver, ...) emitted
+											into the generated &lt;application&gt; element. Elements are rebuilt in the
+											manifest's null namespace regardless of the source namespace; attributes
+											(android:*) are copied as-is.
+										</xs:documentation>
+									</xs:annotation>
+									<xs:sequence>
+										<xs:any processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
 						</xs:all>
 						<xs:attribute name="target" type="xs:string">
 							<xs:annotation>
@@ -134,6 +175,24 @@
 								<xs:documentation>
 									Specify an alternative path to the GTK Android Java sources. Unless you know what you are doing,
 									you should probably not specify this.
+								</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+						<xs:attribute name="extra-java" type="xs:string">
+							<xs:annotation>
+								<xs:documentation>
+									Path (relative to the project root) to app-provided Java sources — workers,
+									providers and the like. Every top-level entry is linked into the generated
+									project's java root, next to the org.gtk.android glue.
+								</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
+						<xs:attribute name="extra-res" type="xs:string">
+							<xs:annotation>
+								<xs:documentation>
+									Path (relative to the project root) to app-provided Android resources
+									(res/-layout: values/, drawable/, ...), merged into the app as an
+									additional resource source set — e.g. localized strings for extra-java code.
 								</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>

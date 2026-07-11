@@ -753,6 +753,30 @@ my %actions = (
 		copy("$asset_dir/generate/LocaleEnvProvider.java", catfile($bridge_dir, "LocaleEnvProvider.java"))
 			or die "Failed to copy LocaleEnvProvider.java: $!";
 
+		# App-provided Java (background workers, providers, ...): every
+		# top-level entry of the build/@extra-java directory is linked into
+		# the project's java root, next to the org.gtk.android glue. Declare
+		# any manifest components they need via <manifest-extras/>.
+		my $extra_java = $appx->findvalue('//pw:app/pw:build/@extra-java');
+		if ($extra_java) {
+			opendir(my $dh, $extra_java) or die "Failed to open extra-java directory $extra_java: $!";
+			for my $entry (readdir $dh) {
+				next if $entry =~ /^\./;
+				force_symlink(rel2abs(catfile($extra_java, $entry)), catfile($output_dir, "app/src/main/java", $entry))
+					or die "Failed to symlink extra java sources: $!";
+			}
+			closedir $dh;
+		}
+
+		# App-provided Android resources (localized strings for extra-java
+		# code, drawables, ...), mounted as an additional res source set —
+		# gradle merges them, so they can't clobber the generated res/.
+		my $extra_res = $appx->findvalue('//pw:app/pw:build/@extra-res');
+		if ($extra_res) {
+			force_symlink(rel2abs($extra_res), catfile($output_dir, "app/src/main/extra-res"))
+				or die "Failed to symlink extra resources: $!";
+		}
+
 		# Placeholder so the manifest's android:localeConfig reference always
 		# resolves; the build step rewrites it from the staged .mo catalogs.
 		write_locales_config(catfile($output_dir, "app/src/main/res"));

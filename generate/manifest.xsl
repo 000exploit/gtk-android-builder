@@ -63,8 +63,18 @@
 						</intent-filter>
 					</xsl:for-each>
 				</activity>
+				<!-- App-provided components (workers, providers, services from
+				     build/@extra-java sources). Rebuilt element-by-element rather
+				     than xsl:copy-of: a verbatim copy drags the source file's
+				     namespace declarations (pixiewood's default ns, xi:, ...) onto
+				     the children, which AGP's manifest merger chokes on. -->
+				<xsl:apply-templates select="pw:build/pw:manifest-extras/*" mode="manifest-extras"/>
 			</application>
 			<uses-permission android:name="android.permission.REORDER_TASKS"/>
+			<!-- App-requested permissions (see build/uses-permissions). -->
+			<xsl:for-each select="pw:build/pw:uses-permissions/pw:permission">
+				<uses-permission android:name="{normalize-space(.)}"/>
+			</xsl:for-each>
 			<xsl:if test="pw:metainfo/meta:component/meta:requires[meta:internet='always' or meta:internet='first-run']
 			            | pw:metainfo/meta:component/meta:recommends[meta:internet='always' or meta:internet='first-run']
 			            | pw:metainfo/meta:component/meta:suggests[meta:internet='always' or meta:internet='first-run' or meta:internet='offline-only']">
@@ -72,5 +82,16 @@
 				<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 			</xsl:if>
 		</manifest>
+	</xsl:template>
+
+	<!-- manifest-extras passthrough: emit each element in the null namespace
+	     with only its attributes (android:* keep their namespace via the
+	     root's prefix), recursing into child elements. Comments and text are
+	     dropped — manifest components carry none that matter. -->
+	<xsl:template match="*" mode="manifest-extras">
+		<xsl:element name="{local-name()}">
+			<xsl:copy-of select="@*"/>
+			<xsl:apply-templates select="*" mode="manifest-extras"/>
+		</xsl:element>
 	</xsl:template>
 </xsl:stylesheet>
