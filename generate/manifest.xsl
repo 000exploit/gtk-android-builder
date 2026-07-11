@@ -14,6 +14,15 @@
 
 	<xsl:template match="/pw:app">
 		<xsl:variable name="id" select="pw:metainfo/meta:component/meta:id[not(@xml:lang)]" />
+		<!-- Apps handling URI schemes want "singleTask" so a redirect landing
+		     on a running instance is delivered (onNewIntent) instead of only
+		     fronting the task; the default stays Android's "standard". -->
+		<xsl:variable name="launch-mode">
+			<xsl:choose>
+				<xsl:when test="pw:build/@launch-mode"><xsl:value-of select="pw:build/@launch-mode"/></xsl:when>
+				<xsl:otherwise>standard</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
 		<manifest>
 			<application
 				android:name="org.gtk.android.RuntimeApplication"
@@ -38,7 +47,7 @@
 				<activity android:name="org.gtk.android.ToplevelActivity"
 					android:configChanges="density|orientation|screenLayout|screenSize|touchscreen|uiMode|locale|layoutDirection"
 					android:windowSoftInputMode="adjustResize"
-					android:launchMode="standard"
+					android:launchMode="{$launch-mode}"
 					android:enableOnBackInvokedCallback="true"
 					android:resizeableActivity="true"
 					android:theme="@style/Theme.GtkSurface"

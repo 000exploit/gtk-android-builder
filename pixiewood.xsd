@@ -202,6 +202,16 @@
 								</xs:documentation>
 							</xs:annotation>
 						</xs:attribute>
+						<xs:attribute name="launch-mode" type="xs:string">
+							<xs:annotation>
+								<xs:documentation>
+									android:launchMode of the main activity (default "standard"). Apps handling
+									custom URI schemes should set "singleTask" so redirects reaching a running
+									instance are delivered via onNewIntent instead of being dropped (needs the
+									gtk "deliver-new-intents" patch).
+								</xs:documentation>
+							</xs:annotation>
+						</xs:attribute>
 						<xs:attribute name="extra-res" type="xs:string">
 							<xs:annotation>
 								<xs:documentation>

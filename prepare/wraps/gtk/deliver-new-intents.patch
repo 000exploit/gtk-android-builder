@@ -1,0 +1,39 @@
+ToplevelActivity: deliver intents arriving at a running activity
+
+An activity only receives its launch intent in onCreate. When a VIEW
+intent resolves to an already-running task (the standard case for custom
+URI schemes: browsers add FLAG_ACTIVITY_NEW_TASK, so an OAuth/OIDC
+redirect bounced back from a browser fronts the existing task), Android
+delivers it through onNewIntent — which ToplevelActivity did not
+implement, so the URI was silently dropped. Forward it to
+GdkContext.open like onCreate does. Only effective together with a
+non-"standard" launchMode (e.g. singleTask): with "standard", the
+task-to-front path delivers no intent at all.
+
+diff --git a/gdk/android/glue/java/org/gtk/android/ToplevelActivity.java b/gdk/android/glue/java/org/gtk/android/ToplevelActivity.java
+--- a/gdk/android/glue/java/org/gtk/android/ToplevelActivity.java
++++ b/gdk/android/glue/java/org/gtk/android/ToplevelActivity.java
+@@ -489,6 +489,23 @@
+ 		});
+ 	}
+
++	@Override
++	protected void onNewIntent(Intent intent) {
++		super.onNewIntent(intent);
++		setIntent(intent);
++
++		if (intent.getData() == null)
++			return;
++
++		String hint = "";
++		if (intent.getAction() != null) {
++			String[] action = intent.getAction().split("\\.");
++			hint = action[action.length - 1].toLowerCase();
++		}
++		final String fhint = hint;
++		GlibContext.runOnMain(() -> GdkContext.open(intent.getData(), fhint));
++	}
++
+ 	@Keep
+ 	@GlibContext.GtkThread
+ 	private void attachToplevelSurface() {
