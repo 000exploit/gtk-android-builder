@@ -136,6 +136,21 @@
 									</xs:sequence>
 								</xs:complexType>
 							</xs:element>
+							<xs:element name="uri-schemes" minOccurs="0">
+								<xs:complexType>
+									<xs:annotation>
+										<xs:documentation>
+											Custom URI schemes the application handles (e.g. an OAuth/OIDC redirect
+											callback like myapp.example). Each becomes a browsable VIEW intent-filter
+											on the main activity; the URI reaches the app as a GApplication open()
+											request (the application needs the HANDLES_OPEN flag).
+										</xs:documentation>
+									</xs:annotation>
+									<xs:sequence>
+										<xs:element name="scheme" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
 							<xs:element name="uses-permissions" minOccurs="0">
 								<xs:complexType>
 									<xs:annotation>

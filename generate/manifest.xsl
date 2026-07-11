@@ -62,6 +62,18 @@
 							<data android:mimeType="{.}" />
 						</intent-filter>
 					</xsl:for-each>
+					<!-- Custom URI schemes (build/uri-schemes): browser-invokable
+					     deep links, e.g. OAuth/OIDC redirect callbacks. The URI is
+					     handed to the application as an open() request (see
+					     ToplevelActivity: GdkContext.open). -->
+					<xsl:for-each select="pw:build/pw:uri-schemes/pw:scheme">
+						<intent-filter>
+							<action android:name="android.intent.action.VIEW"/>
+							<category android:name="android.intent.category.DEFAULT"/>
+							<category android:name="android.intent.category.BROWSABLE"/>
+							<data android:scheme="{normalize-space(.)}"/>
+						</intent-filter>
+					</xsl:for-each>
 				</activity>
 				<!-- App-provided components (workers, providers, services from
 				     build/@extra-java sources). Rebuilt element-by-element rather
