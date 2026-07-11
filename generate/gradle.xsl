@@ -61,12 +61,30 @@ android {
         }
     }
 </xsl:if>
+    // Release signing straight from the environment (e.g. CI secrets): set
+    // ANDROID_KEYSTORE_FILE/-_PASSWORD, ANDROID_KEY_ALIAS/-_PASSWORD and the
+    // release APKs come out signed (no "-unsigned" artifacts). Without the
+    // variables the build behaves as before.
+    signingConfigs {
+        if (System.getenv("ANDROID_KEYSTORE_FILE") != null) {
+            release {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_FILE"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
         }
         release {
             minifyEnabled false
+            if (System.getenv("ANDROID_KEYSTORE_FILE") != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
